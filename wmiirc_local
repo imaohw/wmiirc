@@ -1,0 +1,231 @@
+MODKEY=Mod4
+
+export WMII_TERM='urxvt'
+
+#Colors
+export WMII_BACKGROUND='#4f5459'
+export WMII_NORMCOLORS='#ffffff #3e3e3e #3e3e3e'
+export WMII_FOCUSCOLORS='#ff9966 #333333 #333333'
+export WMII_URGENTCOLORS='#333333 #dea61c #dea61c'
+
+STATUS_MSG_COLOR='#ffffff #333333 #3e3e3e'
+
+export WMII_FONT='xft:DejaVu Sans Mono:size=7:antialias=true:autohint=true'
+
+#icons
+VOLTAGE_ICON="⚡"
+SUN_ICON="☀"
+RAIN_ICON="☔"
+CLOUD_ICON="☁"
+VOLUME_ICON="♪"
+CLOCK_ICON="◷"
+MUSIC_ICON="►"
+V4_ICON="♶"
+V6_ICON="♸"
+LAN_ICON="☍"
+WLAN_ICON="☫"
+UPLOAD_ICON="↗"
+DOWNLOAD_ICON="↙"
+QUALITY_ICON="⌔"
+
+#Tags
+wmiir write /tagrules <<!
+/Screen Layout Editor/ -> ~
+/MPlayer.*/ -> mpl
+/.*VLC media player.*/ -> vlc
+/mutt/ -> mail
+/.*Claws Mail.*/ -> mail
+/.*Thunderbird.*/ -> mail
+/.*Lanikai.*/ -> mail
+/weechat-curses/ -> irc
+/.*EasyTAG.*/ -> tag
+/.*LibreOffice.*/ -> wrt
+/.*Amazon MP3.*/ -> mp3
+/.*Minecraft.*/ -> mcr
+/.*Chromium.*/ -> www
+/.*Chrome.*/ -> www
+/.*Firefox.*/ -> www
+/.*NetBeans.*/ -> dev
+/.*Anjuta.*/ -> dev
+/.*CodeLite.*/ -> dev
+/.*IntelliJ IDEA.*/ -> dev
+/.*VirtualBox.*/ -> vir
+/CSSH.*/ -> ssh
+/VBA/ -> vba
+/.*ncmpcpp.*/ -> mpd
+/.*JDownloader.*/ -> jdl
+/.*tabbed-0.3.*/ -> www
+/.*mupdf.*/ -> pdf
+/.*FileZilla.*/ -> ftp
+/.*mypaint.*/ -> pnt
+/.*MyPaint.*/ -> pnt
+/.*wine.*/ -> win
+/.*Wine.*/ -> win
+/.*rdesktop.*/ -> win
+/urxvt/ -> con
+/Transmission/ -> tor
+/qBittorrent.*/ -> tor
+/.*Rubyripper.*/ -> rip
+/.*Wireshark.*/ -> wsh
+/.*Gimp.*/ -> gmp
+/.*/ -> sel
+/.*/ -> 1
+!
+
+xbindkeys &
+
+#Status
+status() {
+    echo -n "#ffffff #333333 #333333 $CLOCK_ICON $(date +'%d%m%Y %H:%M:%S')"
+}
+
+#volume
+volume() {
+    VOLUME="$VOLUME_ICON $(amixer get Master | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+    echo $STATUS_MSG_COLOR | wmiir create /rbar/zz_volume
+    echo -n ${VOLUME} | wmiir write /rbar/zz_volume
+    
+    wmiir read /event |
+    while read wi_event; do
+        if echo "${wi_event}" | grep '^RightBarClick 5 zz_volume' >/dev/null 
+        then
+            VOLUME="$VOLUME_ICON $(amixer set Master 3%- | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+        fi
+        if echo "${wi_event}" | grep '^RightBarClick 4 zz_volume' >/dev/null 
+        then
+            VOLUME="$VOLUME_ICON $(amixer set Master 3%+ | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+        fi
+        echo -n ${VOLUME} | wmiir write /rbar/zz_volume
+    done
+
+    wmiir rm /rbar/zz_volume
+}
+(volume & ) &
+
+
+#mpd
+mpd_stats() {
+    sleep 10
+    while true; do
+        MPC=`mpc status`
+        SONG=`echo "$MPC" | grep -o -E "(.*\-.*)" | sed 's/^.*: //'`
+        TIME=`echo "$MPC" | grep -o -E "[0-9]+:[0-9]{2}/[0-9]+:[0-9]{2}"`
+
+        if [ -z "$SONG" ]; then
+            wmiir remove /rbar/00_mpd &> /dev/null
+        else
+            echo "$STATUS_MSG_COLOR $MUSIC_ICON ${SONG}[$TIME]" | wmiir create /rbar/00_mpd
+        fi
+        sleep 1
+    done
+}
+#(mpd_stats &) &
+
+#weather
+weather() {
+    while true; do
+        LOCATION=$(geoiplookup $(curl -4 -s ip.whoami.org.uk 2>/dev/null) 2>/dev/null | grep -m 1 -P -o '[0-9]?[0-9]\.[0-9]*, [0-9]?[0-9]\.[0-9]*' | sed 's/ /%20/')
+        WOEID=$(curl -s "http://where.yahooapis.com/geocode?location=$LOCATION&flags=xml&gflags=R&appid=dHxQNb4m" 2>/dev/null | grep -o '<woeid>.*</woeid>' | sed 's/\(<woeid>\)\|\(<\/woeid>\)//g')
+        WEATHER=`curl -s "http://weather.yahooapis.com/forecastrss?u=c&w=$WOEID" | grep "<yweather:condition" | perl -pe 's/.*text=\"(.*?)\".*temp=\"(\-?\d*)\".*/$2°C - $1/g'`
+         
+        case $WEATHER in
+            *Sun*)
+                echo "$STATUS_MSG_COLOR $SUN_ICON $WEATHER" | wmiir create /rbar/01_weather
+            ;;
+            *Rain*)
+                echo "$STATUS_MSG_COLOR $RAIN_ICON $WEATHER" | wmiir create /rbar/01_weather
+            ;;
+            *Cloud*)
+                echo "$STATUS_MSG_COLOR $CLOUD_ICON $WEATHER" | wmiir create /rbar/01_weather
+            ;;
+            *)
+                echo "$STATUS_MSG_COLOR $WEATHER" | wmiir create /rbar/01_weather
+            ;;
+        esac
+        sleep 320
+    done
+}
+(weather & ) &
+
+#lan
+lan() {
+    while true; do
+        LAN="$(ifconfig eth0 | grep 'inet ' | awk '{ print $2}')"
+        if [ -n "$LAN" ]
+        then
+            DOWNLOAD=$(ifconfig eth0 | grep 'RX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+            UPLOAD=$(ifconfig eth0 | grep 'TX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+            echo "$STATUS_MSG_COLOR $LAN_ICON $LAN $DOWNLOAD_ICON $DOWNLOAD $UPLOAD_ICON $UPLOAD" |  wmiir create /rbar/02_lan &> /dev/null
+        else
+            wmiir remove /rbar/02_lan &> /dev/null
+        fi
+        sleep 320
+    done
+}
+(lan &) &
+
+#wlan
+wlan() {
+    while true; do
+	    RFLIST=`rfkill list`
+        case $RFLIST in
+            *yes*)
+                wmiir remove /rbar/02_wlan &> /dev/null
+            ;;
+            *)
+                WLAN=$(ifconfig wlan0 | grep 'inet ' | awk '{ print $2}')
+                QUALITY=$(iwconfig wlan0 | awk -F/ '/Link Quality=/ { gsub("Link Quality=",""); print $1; }' | tr -d ' ')
+                DOWNLOAD=$(ifconfig wlan0 | grep 'RX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+                UPLOAD=$(ifconfig wlan0 | grep 'TX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+                echo "$STATUS_MSG_COLOR $WLAN_ICON $WLAN $DOWNLOAD_ICON $DOWNLOAD $UPLOAD_ICON $UPLOAD $QUALITY_ICON $QUALITY" | wmiir create /rbar/02_wlan &> /dev/null
+            ;;
+        esac
+        sleep 20
+    done
+}
+(wlan & ) &
+
+#ip
+ip() {
+    while true; do
+        IPV4="$(curl -4 ip.whoami.org.uk 2> /dev/null)"
+        IPV6="$(curl -6 ip.whoami.org.uk 2> /dev/null)"
+
+        if [ -n "$IPV4" ]
+        then
+            echo "$STATUS_MSG_COLOR $V4_ICON $IPV4" |  wmiir create /rbar/03_ipv4 &> /dev/null
+        else
+            wmiir remove /rbar/03_ipv4 &> /dev/null
+        fi
+
+        if [ -n "$IPV6" ]
+        then
+            echo "$STATUS_MSG_COLOR $V6_ICON $IPV6" |  wmiir create /rbar/04_ipv6 &> /dev/null
+        else
+            wmiir remove /rbar/04_ipv6 &> /dev/null
+        fi
+        
+        sleep 320
+    done
+}
+(ip &) &
+
+#battery
+bat() {
+    STATUS_MSG_COLOR="#b36b47 #333333 #3e3e3e"
+    while true; do
+	BAT=$(acpi -b | awk '{print $4}' | sed 's/,//')
+        case $BAT in
+            *100*)
+                wmiir remove /rbar/05_bat &> /dev/null
+            ;;
+            *)
+		        echo "$STATUS_MSG_COLOR $VOLTAGE_ICON $BAT" | wmiir create /rbar/05_bat &> /dev/null
+            ;;
+        esac
+        sleep 320
+    done
+}
+(bat &) &
+
+(dropbox start &) &
