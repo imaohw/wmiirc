@@ -8,7 +8,8 @@ export WMII_NORMCOLORS='#ffffff #3e3e3e #3e3e3e'
 export WMII_FOCUSCOLORS='#ff9966 #333333 #333333'
 export WMII_URGENTCOLORS='#333333 #dea61c #dea61c'
 
-STATUS_MSG_COLOR='#ffffff #333333 #3e3e3e'
+STATUS_MSG_COLOR='#ffffff #333333 #333333'
+WARN_MSG_COLOR='#b36b47 #333333 #333333'
 
 export WMII_FONT='xft:DejaVu Sans Mono:size=7:antialias=true:autohint=true'
 
@@ -27,6 +28,7 @@ WLAN_ICON="☫"
 UPLOAD_ICON="↗"
 DOWNLOAD_ICON="↙"
 QUALITY_ICON="⌔"
+LOCK_ICON="☠"
 
 #Tags
 wmiir write /tagrules <<!
@@ -76,32 +78,63 @@ xbindkeys &
 
 #Status
 status() {
-    echo -n "#ffffff #333333 #333333 $CLOCK_ICON $(date +'%d%m%Y %H:%M:%S')"
+    echo -n "$STATUS_MSG_COLOR $CLOCK_ICON $(date +'%d%m%Y %H:%M:%S')"
 }
 
 #volume
 volume() {
-    VOLUME="$VOLUME_ICON $(amixer get Master | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
-    echo $STATUS_MSG_COLOR | wmiir create /rbar/zz_volume
-    echo -n ${VOLUME} | wmiir write /rbar/zz_volume
+    VOLUME="$(amixer get Master | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+    echo "$STATUS_MSG_COLOR $VOLUME_ICON $VOLUME" | wmiir create /rbar/zz_volume
     
     wmiir read /event |
     while read wi_event; do
-        if echo "${wi_event}" | grep '^RightBarClick 5 zz_volume' >/dev/null 
-        then
-            VOLUME="$VOLUME_ICON $(amixer set Master 3%- | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
-        fi
-        if echo "${wi_event}" | grep '^RightBarClick 4 zz_volume' >/dev/null 
-        then
-            VOLUME="$VOLUME_ICON $(amixer set Master 3%+ | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
-        fi
-        echo -n ${VOLUME} | wmiir write /rbar/zz_volume
+        case $wi_event in
+            "RightBarClick 5 zz_volume"*)
+                VOLUME="$(amixer set Master 3%- | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+            ;;
+            "RightBarClick 4 zz_volume"*)
+                VOLUME="$(amixer set Master 3%+ | tail -n 1 | grep -o '[0-9]\?[0-9]\?[0-9]%')"
+            ;;
+        esac
+        echo -n "$VOLUME_ICON $VOLUME" | wmiir write /rbar/zz_volume 2>/dev/null
     done
 
     wmiir rm /rbar/zz_volume
 }
 (volume & ) &
 
+#slock
+lock() {
+    echo "$STATUS_MSG_COLOR $LOCK_ICON" | wmiir create /rbar/zzz_lock
+    RIGHT_MOUSE_DOWN=false
+
+    wmiir read /event |
+    while read wi_event; do
+        case $wi_event in
+            "RightBarClick 1 zzz_lock"*)
+                if $RIGHT_MOUSE_DOWN
+                then
+                    shutdown -hP now
+                else
+                    slock
+                fi
+            ;;
+            "RightBarClick 2 zzz_lock"*)
+                if $RIGHT_MOUSE_DOWN
+                then
+                    pm-hibernate
+                fi
+            ;;
+            "RightBarMouseDown 3 zzz_lock"*)
+                RIGHT_MOUSE_DOWN=true
+            ;;
+            "RightBarClick 3 zzz_lock"*)
+                RIGHT_MOUSE_DOWN=false
+            ;;
+        esac
+    done
+}
+(lock &) &
 
 #mpd
 mpd_stats() {
@@ -142,7 +175,7 @@ weather() {
                 echo "$STATUS_MSG_COLOR $WEATHER" | wmiir create /rbar/01_weather
             ;;
         esac
-        sleep 320
+        sleep 640
     done
 }
 (weather & ) &
@@ -159,7 +192,7 @@ lan() {
         else
             wmiir remove /rbar/02_lan &> /dev/null
         fi
-        sleep 320
+        sleep 30
     done
 }
 (lan &) &
@@ -174,13 +207,18 @@ wlan() {
             ;;
             *)
                 WLAN=$(ifconfig wlan0 | grep 'inet ' | awk '{ print $2}')
-                QUALITY=$(iwconfig wlan0 | awk -F/ '/Link Quality=/ { gsub("Link Quality=",""); print $1; }' | tr -d ' ')
-                DOWNLOAD=$(ifconfig wlan0 | grep 'RX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
-                UPLOAD=$(ifconfig wlan0 | grep 'TX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
-                echo "$STATUS_MSG_COLOR $WLAN_ICON $WLAN $DOWNLOAD_ICON $DOWNLOAD $UPLOAD_ICON $UPLOAD $QUALITY_ICON $QUALITY" | wmiir create /rbar/02_wlan &> /dev/null
+                if [ -n "$WLAN" ]
+                then
+                    QUALITY=$(iwconfig wlan0 | awk -F/ '/Link Quality=/ { gsub("Link Quality=",""); print $1; }' | tr -d ' ')
+                    DOWNLOAD=$(ifconfig wlan0 | grep 'RX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+                    UPLOAD=$(ifconfig wlan0 | grep 'TX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
+                    echo "$STATUS_MSG_COLOR $WLAN_ICON $WLAN $DOWNLOAD_ICON $DOWNLOAD $UPLOAD_ICON $UPLOAD $QUALITY_ICON $QUALITY" | wmiir create /rbar/02_wlan &> /dev/null
+                else
+                    echo "$WARN_MSG_COLOR $WLAN_ICON ON" | wmiir create /rbar/02_wlan &> /dev/null
+                fi
             ;;
         esac
-        sleep 20
+        sleep 30
     done
 }
 (wlan & ) &
@@ -229,3 +267,4 @@ bat() {
 (bat &) &
 
 (dropbox start &) &
+feh --bg-fill $(find ~/.wallpaper -type f -print0 | shuf -n1 -z)
