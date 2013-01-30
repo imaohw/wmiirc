@@ -1,3 +1,5 @@
+#!/bin/bash
+
 MODKEY=Mod4
 
 export WMII_TERM='urxvt'
@@ -33,8 +35,8 @@ LOCK_ICON="☠"
 #Tags
 wmiir write /tagrules <<!
 /Screen Layout Editor/ -> ~
-/MPlayer.*/ -> mpl
-/.*VLC media player.*/ -> vlc
+/MPlayer.*/ -> ~+mpl
+/.*VLC media player.*/ -> ~+vlc
 /mutt/ -> mail
 /.*Claws Mail.*/ -> mail
 /.*Thunderbird.*/ -> mail
@@ -42,10 +44,11 @@ wmiir write /tagrules <<!
 /weechat-curses/ -> irc
 /.*EasyTAG.*/ -> tag
 /.*LibreOffice.*/ -> wrt
-/.*Amazon MP3.*/ -> mp3
+/.*Amazon MP3.*/ -> ~+mp3
 /.*Minecraft.*/ -> mcr
 /.*Chromium.*/ -> www
 /.*Chrome.*/ -> www
+/.*Opera.*/ -> www
 /.*Firefox.*/ -> www
 /.*NetBeans.*/ -> dev
 /.*Anjuta.*/ -> dev
@@ -55,10 +58,11 @@ wmiir write /tagrules <<!
 /CSSH.*/ -> ssh
 /VBA/ -> vba
 /.*ncmpcpp.*/ -> mpd
-/.*JDownloader.*/ -> jdl
+/.*JDownloader.*/ -> ~+jdl
 /.*tabbed-0.3.*/ -> www
 /.*mupdf.*/ -> pdf
-/.*FileZilla.*/ -> ftp
+/.*FileZilla.*/ -> ~+ftp
+/.*Servermanager.*/ -> ~+ftp
 /.*mypaint.*/ -> pnt
 /.*MyPaint.*/ -> pnt
 /.*wine.*/ -> win
@@ -69,7 +73,7 @@ wmiir write /tagrules <<!
 /qBittorrent.*/ -> tor
 /.*Rubyripper.*/ -> rip
 /.*Wireshark.*/ -> wsh
-/.*Gimp.*/ -> gmp
+/.*Gimp.*/ -> ~+gmp
 /.*/ -> sel
 /.*/ -> 1
 !
@@ -200,7 +204,7 @@ lan() {
 #wlan
 wlan() {
     while true; do
-	    RFLIST=`rfkill list`
+        RFLIST=`rfkill list`
         case $RFLIST in
             *yes*)
                 wmiir remove /rbar/02_wlan &> /dev/null
@@ -250,7 +254,6 @@ ip() {
 
 #battery
 bat() {
-    STATUS_MSG_COLOR="#b36b47 #333333 #3e3e3e"
     while true; do
 	BAT=$(acpi -b | awk '{print $4}' | sed 's/,//')
         case $BAT in
@@ -258,7 +261,7 @@ bat() {
                 wmiir remove /rbar/05_bat &> /dev/null
             ;;
             *)
-		        echo "$STATUS_MSG_COLOR $VOLTAGE_ICON $BAT" | wmiir create /rbar/05_bat &> /dev/null
+                echo "$WARN_MSG_COLOR $VOLTAGE_ICON $BAT" | wmiir create /rbar/05_bat &> /dev/null
             ;;
         esac
         sleep 320
@@ -267,4 +270,3 @@ bat() {
 (bat &) &
 
 (dropbox start &) &
-feh --bg-fill $(find ~/.wallpaper -type f -print0 | shuf -n1 -z)
