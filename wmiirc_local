@@ -69,6 +69,7 @@ wmiir write /tagrules <<!
 /.*Wine.*/ -> win
 /.*rdesktop.*/ -> win
 /urxvt/ -> con
+/.*OpenTTD.*/ -> ttd
 /Transmission/ -> tor
 /qBittorrent.*/ -> tor
 /.*Rubyripper.*/ -> rip
@@ -158,10 +159,41 @@ mpd_stats() {
 }
 #(mpd_stats &) &
 
+#moc
+moc_stats() {
+    sleep 10
+    while true; do
+        MOC=$(mocp -Q "%file (%tl)" 2> /dev/null | sed 's/^.*\///g; s/\.mp3//g');
+
+        if [ -z "$MOC" ]; then
+            wmiir remove /rbar/00_mpd &> /dev/null
+        else
+            echo "$STATUS_MSG_COLOR $MUSIC_ICON $MOC" | wmiir create /rbar/00_mpd
+        fi
+        sleep 5
+    done
+}
+#(moc_stats &) &
+
+#lastfm
+lastfm() {
+    sleep 10
+    while true; do
+        SONG=$(~/bin/now_playing "%ARTIST% - %TITLE%")
+        if [ -z "$SONG" ]; then
+            wmiir remove /rbar/00_mpd &> /dev/null
+        else
+            echo "$STATUS_MSG_COLOR $MUSIC_ICON $SONG" | wmiir create /rbar/00_mpd
+        fi
+        sleep 5
+    done
+}
+(lastfm &) &
+
 #weather
 weather() {
     while true; do
-        LOCATION=$(geoiplookup $(curl -4 -s ip.whoami.org.uk 2>/dev/null) 2>/dev/null | grep -m 1 -P -o '[0-9]?[0-9]\.[0-9]*, [0-9]?[0-9]\.[0-9]*' | sed 's/ /%20/')
+        LOCATION=$(geoiplookup $(curl -4 -s ip.dev-urandom.eu 2>/dev/null) 2>/dev/null | grep -m 1 -P -o '[0-9]?[0-9]\.[0-9]*, [0-9]?[0-9]\.[0-9]*' | sed 's/ /%20/')
         WOEID=$(curl -s "http://where.yahooapis.com/geocode?location=$LOCATION&flags=xml&gflags=R&appid=dHxQNb4m" 2>/dev/null | grep -o '<woeid>.*</woeid>' | sed 's/\(<woeid>\)\|\(<\/woeid>\)//g')
         WEATHER=`curl -s "http://weather.yahooapis.com/forecastrss?u=c&w=$WOEID" | grep "<yweather:condition" | perl -pe 's/.*text=\"(.*?)\".*temp=\"(\-?\d*)\".*/$2°C - $1/g'`
          
@@ -182,7 +214,7 @@ weather() {
         sleep 640
     done
 }
-(weather & ) &
+(weather &) &
 
 #lan
 lan() {
@@ -230,8 +262,8 @@ wlan() {
 #ip
 ip() {
     while true; do
-        IPV4="$(curl -4 ip.whoami.org.uk 2> /dev/null)"
-        IPV6="$(curl -6 ip.whoami.org.uk 2> /dev/null)"
+        IPV4="$(curl -4 ip.dev-urandom.eu 2> /dev/null)"
+        IPV6="$(curl -6 ip.dev-urandom.eu 2> /dev/null)"
 
         if [ -n "$IPV4" ]
         then
