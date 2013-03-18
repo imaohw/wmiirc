@@ -179,7 +179,7 @@ moc_stats() {
 lastfm() {
     sleep 10
     while true; do
-        SONG=$(~/bin/now_playing "%ARTIST% - %TITLE%")
+        SONG=$(~/bin/now_playing "%ARTIST% - %TITLE%" 2> /dev/null)
         if [ -z "$SONG" ]; then
             wmiir remove /rbar/00_mpd &> /dev/null
         else
