@@ -2,7 +2,7 @@ wmiirc
 ======
 The following status bars are available.
 
-######MPD
+######MPD/MOC/LastFM
 * Shows current playing song
 
 ######Weather
