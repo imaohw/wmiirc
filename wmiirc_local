@@ -75,6 +75,7 @@ wmiir write /tagrules <<!
 /.*Rubyripper.*/ -> rip
 /.*Wireshark.*/ -> wsh
 /.*Gimp.*/ -> ~+gmp
+/.*Sublime Text.*/ -> txt
 /.*/ -> sel
 /.*/ -> 1
 !
@@ -179,7 +180,7 @@ moc_stats() {
 lastfm() {
     sleep 10
     while true; do
-        SONG=$(~/bin/now_playing "%ARTIST% - %TITLE%" 2> /dev/null)
+        SONG=$(~/bin/now_playing "%ARTIST% - %TITLE%")
         if [ -z "$SONG" ]; then
             wmiir remove /rbar/00_mpd &> /dev/null
         else
@@ -193,10 +194,7 @@ lastfm() {
 #weather
 weather() {
     while true; do
-        LOCATION=$(geoiplookup $(curl -4 -s ip.dev-urandom.eu 2>/dev/null) 2>/dev/null | grep -m 1 -P -o '[0-9]?[0-9]\.[0-9]*, [0-9]?[0-9]\.[0-9]*' | sed 's/ /%20/')
-        WOEID=$(curl -s "http://where.yahooapis.com/geocode?location=$LOCATION&flags=xml&gflags=R&appid=dHxQNb4m" 2>/dev/null | grep -o '<woeid>.*</woeid>' | sed 's/\(<woeid>\)\|\(<\/woeid>\)//g')
-        WEATHER=`curl -s "http://weather.yahooapis.com/forecastrss?u=c&w=$WOEID" | grep "<yweather:condition" | perl -pe 's/.*text=\"(.*?)\".*temp=\"(\-?\d*)\".*/$2°C - $1/g'`
-         
+        WEATHER=$(~/bin/wunder)
         case $WEATHER in
             *Sun*)
                 echo "$STATUS_MSG_COLOR $SUN_ICON $WEATHER" | wmiir create /rbar/01_weather
@@ -246,6 +244,7 @@ wlan() {
                 if [ -n "$WLAN" ]
                 then
                     QUALITY=$(iwconfig wlan0 | awk -F/ '/Link Quality=/ { gsub("Link Quality=",""); print $1; }' | tr -d ' ')
+                    QUALITY=$(echo "scale=2; print ($QUALITY/70)*100" | bc | sed 's/\.[0-9][0-9]//g')
                     DOWNLOAD=$(ifconfig wlan0 | grep 'RX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
                     UPLOAD=$(ifconfig wlan0 | grep 'TX packets' | awk '{print $6,$7}' | sed 's/(\|)//g')
                     echo "$STATUS_MSG_COLOR $WLAN_ICON $WLAN $DOWNLOAD_ICON $DOWNLOAD $UPLOAD_ICON $UPLOAD $QUALITY_ICON $QUALITY" | wmiir create /rbar/02_wlan &> /dev/null
